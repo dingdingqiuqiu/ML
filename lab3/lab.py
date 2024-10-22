@@ -1,26 +1,34 @@
 # 导入必要的库
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-from sklearn.metrics import accuracy_score
+import numpy as np # 矩阵运算
+import matplotlib.pyplot as plt # 折线图等2D图像
+import matplotlib as mpl # 其他图像
+from sklearn.metrics import accuracy_score # 评估准确率
 
 # 加载数据
 def loaddata():
-    # 从文本文件中加载数据
+    # 从文本文件中加载数据,各个单独的数据使用逗号分割
     data = np.loadtxt('data1.txt', delimiter=',')
     n = data.shape[1] - 1  # 特征数
-    X = data[:, 0:n]  # 特征矩阵
-    y = data[:, -1].reshape(-1, 1)  # 标签向量
+    X = data[:, 0:n]  # 特征矩阵,为数据的非最后一列
+    y = data[:, -1].reshape(-1, 1)  # 标签向量,为数据的最后一列,并重塑为二维矩阵方便运算
     return X, y
 
 def plot(X, y):
     # 绘制数据点
-    pos = np.where(y == 1)  # 正样本索引
-    neg = np.where(y == 0)  # 负样本索引
+    pos = np.where(y == 1)  # 正样本索引，使用np中的where函数正样本索引点，并存入neg中
+    neg = np.where(y == 0)  # 负样本索引，原理同上
+    # 使用plt模块中的scatter函数绘制散点图 
+    # X[pos[0],0]选取正样本中的特征矩阵X中的第一列数据作为数据点的第一列特征
+    # X[pos[0],1]选取正样本中的特征矩阵X中的第二列数据作为数据点的第二列特征
+    # marker='x'将正样本用'x'形标记
+    # label='Positive':为正样本设置标签，用于后面的图例 
+    # 负样本的绘制略
     plt.scatter(X[pos[0], 0], X[pos[0], 1], marker='x', label='Positive')
     plt.scatter(X[neg[0], 0], X[neg[0], 1], marker='o', label='Negative')
+    # 设置x轴标签为"Exam 1 score",设置y轴标签为"Exam 2 score"
     plt.xlabel('Exam 1 score')  # x轴标签
     plt.ylabel('Exam 2 score')  # y轴标签
+    # 用于上面正样本标签与负样本标签的显示
     plt.legend()  # 显示图例
     # plt.show()
     plt.savefig('dataAndLine.png')
@@ -41,11 +49,14 @@ def hypothesis(X, theta):
 
 def computeCost(X, y, theta):
     m = X.shape[0]  # 样本数
-    z = hypothesis(X, theta)  # 计算假设值
+    z = hypothesis(X, theta)  # 计算假设值  
+    # 限制 z 的范围以避免取对数时出现问题
+    epsilon = 1e-15
+    z = np.clip(z, epsilon, 1 - epsilon) 
     # 计算代价函数
     cost = -np.sum(y * np.log(z) + (1 - y) * np.log(1 - z)) / m  # 代价公式
     return cost
-
+   
 def gradientDescent(X, y, theta, iterations, alpha):
     m = X.shape[0]  # 样本数
     X = np.hstack((np.ones((m, 1)), X))  # 在X前加一列1（偏置项）
