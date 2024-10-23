@@ -58,33 +58,15 @@ def generate_samples():
 # (5) Main comparison function
 def compare_predictions(manual_clf, library_clf):
     samples = generate_samples()
-    matches = 0
-    total = len(samples)
-    
     for sample in samples:
         manual_prediction = predict(manual_clf, sample)
         library_prediction = library_clf.predict(pd.DataFrame([sample], columns=df.columns[:-1]))[0]
-        
-        # Print predictions
         print(f"Sample: {sample}, Manual Prediction: {manual_prediction[0]}, Library Prediction: {library_prediction}")
-        
-        if manual_prediction[0] == library_prediction:
-            matches += 1
-
-        # Calculate and print similarity percentage after each prediction
-        similarity_percentage = (matches / (samples.index(sample) + 1)) * 100
-        print(f"Current Similarity Percentage: {similarity_percentage:.2f}%")
-
-    # Final similarity percentage after all predictions
-    final_similarity = (matches / total) * 100
-    return final_similarity
 
 # Main code
 df = loaddata()                  # Load the dataset
 manual_clf = train_decision_tree(df, manual=True)  # Train manual decision tree
 library_clf = train_decision_tree(df, manual=False)  # Train library decision tree
 
-# Compare predictions and print if similarity > 95%
-similarity = compare_predictions(manual_clf, library_clf)
-if similarity > 95:
-    print(f"Final Similarity Percentage: {similarity:.2f}%")
+# Compare predictions
+compare_predictions(manual_clf, library_clf)

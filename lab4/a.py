@@ -1,0 +1,169 @@
+import numpy as np
+import pandas as pd
+from sklearn.tree import DecisionTreeClassifier
+import itertools
+import operator
+from math import log
+
+# (1) Load dataset
+def loaddata():
+    dataSet = [
+        [0, 0, 0, 0, 0, 0, 'yes'],
+        [1, 0, 1, 0, 0, 0, 'yes'],
+        [1, 0, 0, 0, 0, 0, 'yes'],
+        [0, 0, 1, 0, 0, 0, 'yes'],
+        [2, 0, 0, 0, 0, 0, 'yes'],
+        [0, 1, 0, 0, 1, 1, 'yes'],
+        [1, 1, 0, 1, 1, 1, 'yes'],
+        [1, 1, 0, 0, 1, 0, 'yes'],
+        [1, 1, 1, 1, 1, 0, 'no'],
+        [0, 2, 2, 0, 2, 1, 'no'],
+        [2, 2, 2, 2, 2, 0, 'no'],
+        [2, 0, 0, 2, 2, 1, 'no'],
+        [0, 1, 0, 1, 0, 0, 'no'],
+        [2, 1, 1, 1, 0, 0, 'no'],
+        [1, 1, 0, 0, 1, 1, 'no'],
+        [2, 0, 0, 2, 2, 0, 'no'],
+        [0, 0, 1, 1, 1, 0, 'no']
+    ]
+    feature_name = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'label']
+    return dataSet, feature_name
+
+# (2) Calculate the entropy of the dataset
+def entropy(dataSet):
+    m = len(dataSet)
+    labelCounts = {}
+    for featVec in dataSet:
+        currentLabel = featVec[-1]
+        if currentLabel not in labelCounts:
+            labelCounts[currentLabel] = 0
+        labelCounts[currentLabel] += 1
+    e = 0.0
+    for key in labelCounts:
+        prob = labelCounts[key] / m
+        e -= prob * log(prob, 2)
+    return e
+
+# (3) Split the dataset
+def splitDataSet(dataSet, axis, value):
+    retDataSet = []
+    for featVec in dataSet:
+        if featVec[axis] == value:
+            reducedFeatVec = featVec[:axis] + featVec[axis + 1:]
+            retDataSet.append(reducedFeatVec)
+    return retDataSet
+
+# (4) Choose the best feature
+def chooseBestFeature(dataSet):
+    n = len(dataSet[0]) - 1
+    baseEntropy = entropy(dataSet)
+    bestInfoGain = 0.0
+    bestFeature = -1
+    for i in range(n):
+        featList = [example[i] for example in dataSet]
+        uniqueVals = set(featList)
+        newEntropy = 0.0
+        for value in uniqueVals:
+            subDataSet = splitDataSet(dataSet, i, value)
+            prob = len(subDataSet) / float(len(dataSet))
+            newEntropy += prob * entropy(subDataSet)
+        infoGain = baseEntropy - newEntropy
+        if infoGain > bestInfoGain:
+            bestInfoGain = infoGain
+            bestFeature = i
+    return bestFeature
+
+# (5) Class vote
+def classVote(classList):
+    classCount = {}
+    for vote in classList:
+        if vote not in classCount:
+            classCount[vote] = 0
+        classCount[vote] += 1
+    sortedClassCount = sorted(classCount.items(), key=operator.itemgetter(1), reverse=True)
+    return sortedClassCount[0][0]
+
+# (6) Recursive training of the decision tree
+def trainTree(dataSet, feature_name):
+    classList = [example[-1] for example in dataSet]
+    if classList.count(classList[0]) == len(classList):
+        return classList[0]
+    if len(dataSet[0]) == 1:
+        return classVote(classList)
+    bestFeat = chooseBestFeature(dataSet)
+    bestFeatName = feature_name[bestFeat]
+    myTree = {bestFeatName: {}}
+    
+    featValues = [example[bestFeat] for example in dataSet]
+    uniqueVals = set(featValues)
+    for value in uniqueVals:
+        sub_feature_name = feature_name[:]
+        sub_dataset = splitDataSet(dataSet, bestFeat, value)
+        myTree[bestFeatName][value] = trainTree(sub_dataset, sub_feature_name)
+        
+    return myTree
+
+# (7) Test prediction
+def predict(inputTree, featLabels, testVec):
+    firstStr = list(inputTree.keys())[0]
+    secondDict = inputTree[firstStr]
+    featIndex = featLabels.index(firstStr)
+    key = testVec[featIndex]
+    
+    # 检查键是否在字典中
+    if key not in secondDict:
+        return "no"  # 或者返回一个默认值，比如 'unknown'
+    
+    valueOfFeat = secondDict[key]
+    
+    if isinstance(valueOfFeat, dict):
+        classLabel = predict(valueOfFeat, featLabels, testVec)
+    else:
+        classLabel = valueOfFeat
+        
+    return classLabel
+
+# (8) Train the sklearn decision tree
+def train_sklearn_tree(df):
+    X = df.drop(columns='label')
+    y = df['label']
+    clf = DecisionTreeClassifier(random_state=42, criterion='entropy')
+    clf.fit(X, y)
+    return clf
+
+# (9) Generate all possible samples based on feature ranges
+def generate_samples():
+    ranges = [
+        [0, 1, 2],  # for a1
+        [0, 1, 2],  # for a2
+        [0, 1, 2],  # for a3
+        [0, 1, 2],  # for a4
+        [0, 1, 2],  # for a5
+        [0, 1]      # for a6
+    ]
+    return list(itertools.product(*ranges))
+
+# (10) Compare predictions and calculate similarity rate
+def compare_predictions(manual_tree, library_clf, df):
+    samples = generate_samples()
+    matches = 0
+    total_samples = len(samples)
+
+    for sample in samples:
+        manual_prediction = predict(manual_tree, df.columns[:-1].tolist(), list(sample))
+        library_prediction = library_clf.predict(pd.DataFrame([sample], columns=df.columns[:-1]))[0]
+        print(f"Sample: {sample}, Manual Prediction: {manual_prediction}, Library Prediction: {library_prediction}")
+
+        if manual_prediction == library_prediction:
+            matches += 1
+
+    similarity_rate = (matches / total_samples) * 100
+    print(f"Similarity Rate: {similarity_rate:.2f}%")
+
+# Main code
+data, feature_names = loaddata()  # Load the dataset
+manual_tree = trainTree(data, feature_names)  # Train manual decision tree
+library_clf = train_sklearn_tree(pd.DataFrame(data, columns=feature_names))  # Train library decision tree
+
+# Compare predictions
+compare_predictions(manual_tree, library_clf, pd.DataFrame(data, columns=feature_names))

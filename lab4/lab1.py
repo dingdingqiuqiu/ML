@@ -36,7 +36,8 @@ def train_decision_tree(df):
 
 # (3) 预测新样本
 def predict(clf, sample):
-    return clf.predict([sample])
+    sample_df = pd.DataFrame([sample], columns=df.columns[:-1])
+    return clf.predict(sample_df)
 
 # (4) Main
 df = loaddata()                  # 加载数据集
